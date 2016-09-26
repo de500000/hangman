@@ -180,8 +180,8 @@ Here's this module being exercised from an iex session:
   @spec make_move(state, ch) :: { state, atom, optional_ch }
   def make_move(state, guess) do
     cond do
-          game_over?( state[:turns_left] ) -> { state, :lost, guess }
-          game_won?( state[:blanks] ) -> { state, :won, guess }
+          game_over?( state[:turns_left] ) -> { state, :lost, nil }
+          game_won?( state[:blanks] ) -> { state, :won, nil }
           true -> play_game(state, guess)
     end
   end
@@ -259,14 +259,14 @@ Here's this module being exercised from an iex session:
       	new_blanks = Enum.reduce(positions, state[:blanks], fn(indx, str) -> String.split(str, "") |> List.replace_at(indx, letter) |> Enum.join end)
         state = put_in(state.blanks, new_blanks)
         cond do
-          game_won?(state[:blanks] ) -> { state, :won, letter }
-          true -> { state, :good_guess, letter }
+          game_won?(state[:blanks] ) -> { state, :won, nil}
+          true -> { state, :good_guess, letter}
         end
     else
         state = Map.update(state, :turns_left, 10, &(&1 - 1 ))
         cond do
-              game_over?( state[:turns_left] ) -> { state, :lost, letter }
-              true -> { state, :bad_guess, letter }
+              game_over?( state[:turns_left] ) -> { state, :lost , nil}
+              true -> { state, :bad_guess, letter}
         end
     end
   end
@@ -292,10 +292,7 @@ Here's this module being exercised from an iex session:
   end
 
   defp add_letter(guessed, letter) do
-   cond do
-   	  Enum.member?(guessed, letter) -> guessed
-   		true -> List.insert_at(guessed, -1, letter)
-   	end
+      MapSet.union(MapSet.new(guessed), MapSet.new([letter])) |> MapSet.to_list
   end
 
  end
