@@ -107,7 +107,7 @@ Here's this module being exercised from an iex session:
 
     iex(13)> { game, state, guess } = G.make_move(game, "b")
     . . .
-    iex(14)> state                                          
+    iex(14)> state
     :bad_guess
 
     iex(15)> { game, state, guess } = G.make_move(game, "f")
@@ -142,6 +142,7 @@ Here's this module being exercised from an iex session:
 
   @spec new_game :: state
   def new_game do
+    init_state Hangman.Dictionary.random_word
   end
 
 
@@ -152,6 +153,7 @@ Here's this module being exercised from an iex session:
   """
   @spec new_game(binary) :: state
   def new_game(word) do
+  	init_state word
   end
 
 
@@ -177,6 +179,11 @@ Here's this module being exercised from an iex session:
 
   @spec make_move(state, ch) :: { state, atom, optional_ch }
   def make_move(state, guess) do
+    cond do
+          game_over?( state[:turns_left] ) -> { state, :lost, guess }
+          game_won?( state[:blanks] ) -> { state, :won, guess }
+          true -> play_game(state, guess)
+    end
   end
 
 
@@ -187,6 +194,7 @@ Here's this module being exercised from an iex session:
   """
   @spec word_length(state) :: integer
   def word_length(%{ word: word }) do
+    String.length word
   end
 
   @doc """
@@ -199,6 +207,7 @@ Here's this module being exercised from an iex session:
 
   @spec letters_used_so_far(state) :: [ binary ]
   def letters_used_so_far(state) do
+  	state[:guessed]
   end
 
   @doc """
@@ -211,6 +220,7 @@ Here's this module being exercised from an iex session:
 
   @spec turns_left(state) :: integer
   def turns_left(state) do
+     state[:turns_left]
   end
 
   @doc """
@@ -224,6 +234,10 @@ Here's this module being exercised from an iex session:
 
   @spec word_as_string(state, boolean) :: binary
   def word_as_string(state, reveal \\ false) do
+    cond do
+      !reveal -> format_word state[:blanks]
+      true    -> format_word state[:word]
+    end
   end
 
   ###########################
@@ -231,5 +245,57 @@ Here's this module being exercised from an iex session:
   ###########################
 
   # Your private functions go here
+
+  defp play_game(state, letter) do
+
+    guessed = add_letter(state[:guessed], letter)
+
+    state = put_in(state.guessed, guessed)
+
+    positions =
+      Regex.scan(~r/#{String.downcase(letter)}/, String.downcase(state[:word]), return: :index) |> List.flatten |> Enum.map(&(elem(&1, 0)))
+
+    if Enum.any?(positions) do
+      	new_blanks = Enum.reduce(positions, state[:blanks], fn(indx, str) -> String.split(str, "") |> List.replace_at(indx, letter) |> Enum.join end)
+        state = put_in(state.blanks, new_blanks)
+        cond do
+          game_won?(state[:blanks] ) -> { state, :won, letter }
+          true -> { state, :good_guess, letter }
+        end
+    else
+        state = Map.update(state, :turns_left, 10, &(&1 - 1 ))
+        cond do
+              game_over?( state[:turns_left] ) -> { state, :lost, letter }
+              true -> { state, :bad_guess, letter }
+        end
+    end
+  end
+
+  defp game_over?(turns_left) do
+    turns_left == 0
+  end
+
+  defp init_state(word) do
+    %{ word: word, guessed: [], blanks: as_blanks(word), turns_left: 10 }
+  end
+
+  defp as_blanks(word) do
+    String.replace( word, ~r/./, "_" )
+  end
+
+  defp game_won?(blanks) do
+    !( blanks =~ "_" )
+  end
+
+  defp format_word(word) do
+    String.split( word,"") |> Enum.join(" " ) |> String.rstrip
+  end
+
+  defp add_letter(guessed, letter) do
+   cond do
+   	  Enum.member?(guessed, letter) -> guessed
+   		true -> List.insert_at(guessed, -1, letter)
+   	end
+  end
 
  end
